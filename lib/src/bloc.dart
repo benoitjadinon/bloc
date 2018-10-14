@@ -61,10 +61,13 @@ abstract class Bloc<E, S> {
 }
 
 abstract class RxBloc<E, S> extends Bloc<E, S> {
-  Stream<OnAction<E,S>> get onAction 
+  Stream<OnAction<T,S>> onAction<T extends E>()
     => _eventSubject
-        .withLatestFrom(_stateSubject.startWith(initialState), (E e, S s) => OnAction(e,s))
-        ;
+      .where((evt) => evt is T) //TODO: isn't this just a transform ?
+      .withLatestFrom(
+        _stateSubject.startWith(initialState), //TODO: what if null ?
+        (E e, S s) => OnAction(e as T,s))
+      ;
 
   // waiting for CompositeSubscription https://github.com/ReactiveX/rxdart/pull/191/files/ae26e7b9ed63ed0832eac6362adb611f59588b8e
   List<StreamSubscription> disposables = List<StreamSubscription>();

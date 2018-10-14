@@ -70,27 +70,21 @@ class CounterBloc extends RxBloc<CounterEvent, int> {
 
   CounterBloc(){
     disposables.add(
-      onAction
-        .where((action) => action.event is IncrementCounter)
+      onAction<IncrementCounter>()
         .map((action) => action.lastState += 1)
         .listen(setState)
     );
-    
+
     disposables.add(
-      onAction
-        .where((action) => action.event is DecrementCounter)
+      onAction<DecrementCounter>()
         .map((action) => action.lastState -= 1)
         .listen(setState)
     );
   }
 
-  void increment() {
-    dispatch(IncrementCounter());
-  }
+  void increment() => dispatch(IncrementCounter());
 
-  void decrement() {
-    dispatch(DecrementCounter());
-  }
+  void decrement() => dispatch(DecrementCounter());
 
   /*
   // just for debugging info
