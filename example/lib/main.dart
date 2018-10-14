@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:bloc/bloc.dart';
+import 'package:rxdart/src/transformers/do.dart';
 
 void main() => runApp(MyApp());
 
@@ -64,8 +65,24 @@ class IncrementCounter extends CounterEvent {}
 
 class DecrementCounter extends CounterEvent {}
 
-class CounterBloc extends Bloc<CounterEvent, int> {
+class CounterBloc extends RxBloc<CounterEvent, int> {
   int get initialState => 0;
+
+  CounterBloc(){
+    disposables.add(
+      onAction
+        .where((action) => action.event is IncrementCounter)
+        .map((action) => action.lastState += 1)
+        .listen(setState)
+    );
+    
+    disposables.add(
+      onAction
+        .where((action) => action.event is DecrementCounter)
+        .map((action) => action.lastState -= 1)
+        .listen(setState)
+    );
+  }
 
   void increment() {
     dispatch(IncrementCounter());
@@ -75,13 +92,16 @@ class CounterBloc extends Bloc<CounterEvent, int> {
     dispatch(DecrementCounter());
   }
 
+  /*
+  // just for debugging info
   @override
-  Stream<int> mapEventToState(int state, CounterEvent event) async* {
-    if (event is IncrementCounter) {
-      yield state + 1;
-    }
-    if (event is DecrementCounter) {
-      yield state - 1;
-    }
-  }
+  Stream<CounterEvent> transform(Stream<CounterEvent> events) {
+    return events
+      .transform(new DoStreamTransformer<CounterEvent>(
+          onData: print,
+          //onError: (CounterEvent e, StackTrace s) => print("Oh no!"),
+          //onDone: () => print("Done")
+      )
+    );
+  }*/
 }

@@ -45,15 +45,43 @@ abstract class Bloc<E, S> {
   /// and return the new state in the form of a [Stream] which is consumed by the presentation layer.
   Stream<S> mapEventToState(S state, E event);
 
+  void setState(S state) => _stateSubject.add(state);
+
   void _bindStateSubject() {
     (transform(_eventSubject) as Observable<E>)
-        .concatMap(
+    .concatMap(
       (E event) => mapEventToState(_stateSubject.value ?? initialState, event),
     )
-        .forEach(
+    .forEach(
       (S state) {
-        _stateSubject.add(state);
+        setState(state);
       },
     );
   }
+}
+
+abstract class RxBloc<E, S> extends Bloc<E, S> {
+  Stream<OnAction<E,S>> get onAction 
+    => _eventSubject
+        .withLatestFrom(_stateSubject.startWith(initialState), (E e, S s) => OnAction(e,s))
+        ;
+
+  // waiting for CompositeSubscription https://github.com/ReactiveX/rxdart/pull/191/files/ae26e7b9ed63ed0832eac6362adb611f59588b8e
+  List<StreamSubscription> disposables = List<StreamSubscription>();
+
+  @override
+  Stream<S> mapEventToState(S state, E event) async* {}
+
+  @override
+  void dispose() {
+    disposables.forEach((d) => d.cancel());
+    disposables.clear();
+    super.dispose();
+  }
+}
+
+class OnAction<E, S> {
+  E event;
+  S lastState;
+  OnAction(E this.event, S this.lastState){}
 }
