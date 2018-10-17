@@ -20,31 +20,27 @@ abstract class BaseBloc implements IBloc
   }
 }
 
-class HasState<S> extends Object implements IBloc
+abstract class HasState<S> implements IBloc
 {
   final BehaviorSubject<S> _stateSubject = BehaviorSubject<S>();
   @protected BehaviorSubject<S> get stateSubject => _stateSubject;
 
   /// Returns [Stream] of states, receives the last one (if any) on subscription.
   /// Consumed by [BlocBuilder].
-  Stream<S> get state => _stateSubject;
+  Stream<S> get state => _stateSubject.stream;
 
   /// Returns the state before any events have been `dispatched`.
   @protected S get initialState => null;
 
   @protected void setState(S state) => stateSubject.add(state);
 
+  @protected
   void disposeState() {
     _stateSubject.close();
   }
-
-  @override
-  void dispose() {
-    disposeState();
-  }
 }
 
-class HasEvent<E> extends Object implements IBloc
+abstract class HasEvent<E> implements IBloc
 {
   final PublishSubject<E> _eventSubject = PublishSubject<E>();
 
@@ -59,13 +55,9 @@ class HasEvent<E> extends Object implements IBloc
   /// This allows for operations like `distinct()`, `debounce()`, etc... to be applied.
   @protected Stream<E> transform(Stream<E> events) => events;
 
+  @protected
   void disposeEvent() {
     _eventSubject.close();
-  }
-
-  @override
-  void dispose() {
-    disposeEvent();
   }
 }
 
@@ -84,13 +76,13 @@ abstract class SinkBloc extends BaseBloc {
 abstract class SinkStateBloc<S> extends SinkBloc with HasState<S> {
   @override
   void dispose() {
-    (this as HasState).dispose();
-    //disposeState();
+    disposeState();
     super.dispose();
   }
 }
 
 abstract class EventStateBloc<E, S> extends SinkBloc with HasState<S>, HasEvent<E> {
+  @protected
   Stream<OnEvent<T,S>> onEvent<T extends E>()
   => _eventSubject
       .where((evt) => evt is T) //TODO: isn't this just a transform ?
@@ -101,10 +93,8 @@ abstract class EventStateBloc<E, S> extends SinkBloc with HasState<S>, HasEvent<
 
   @override
   void dispose() {
-    (this as HasState).dispose();
-    (this as HasEvent).dispose();
-    //disposeEvent();
-    //disposeState();
+    disposeEvent();
+    disposeState();
     super.dispose();
   }
 }
@@ -123,7 +113,7 @@ abstract class Bloc<E, S> extends EventStateBloc<E, S> {
   /// `mapEventToState` is called whenever an event is dispatched by the presentation layer.
   /// `mapEventToState` must convert that event, along with the current state, into a new state
   /// and return the new state in the form of a [Stream] which is consumed by the presentation layer.
-  Stream<S> mapEventToState(S state, E event);
+  @protected Stream<S> mapEventToState(S state, E event);
 
   void _bindStateSubject() {
     (transform(_eventSubject) as Observable<E>)
