@@ -12,7 +12,7 @@ typedef Widget BlocWidgetBuilder<S>(BuildContext context, S state);
 /// BlocBuilder analagous to [StreamBuilder] but has simplified API
 /// to reduce the amount of boilerplate code needed.
 class BlocBuilder<S> extends StatefulWidget {
-  final Bloc<dynamic, S> bloc;
+  final HasState<S> bloc;
   final BlocWidgetBuilder<S> builder;
 
   const BlocBuilder({Key key, @required this.bloc, @required this.builder})
@@ -25,7 +25,7 @@ class BlocBuilder<S> extends StatefulWidget {
 }
 
 class _BlocBuilderState<S> extends State<BlocBuilder<S>> {
-  final Bloc<dynamic, S> bloc;
+  final HasState<S> bloc;
   final BlocWidgetBuilder<S> builder;
 
   _BlocBuilderState(this.bloc, this.builder);

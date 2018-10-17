@@ -1,24 +1,52 @@
 import 'dart:async';
 
 import 'package:rxdart/rxdart.dart';
+import 'package:meta/meta.dart';
 
-/// Takes a [Stream] of events as input
-/// and transforms them into a [Stream] of states as output.
-abstract class Bloc<E, S> {
-  final PublishSubject<E> _eventSubject = PublishSubject<E>();
 
+abstract class IBloc
+{
+  void dispose();
+}
+
+abstract class BaseBloc implements IBloc
+{
+  bool _disposed = false;
+  bool get disposed => _disposed;
+
+  @mustCallSuper
+  void dispose() {
+    _disposed = true;
+  }
+}
+
+class HasState<S> extends Object implements IBloc
+{
   final BehaviorSubject<S> _stateSubject = BehaviorSubject<S>();
+  @protected BehaviorSubject<S> get stateSubject => _stateSubject;
 
-  /// Returns [Stream] of states.
+  /// Returns [Stream] of states, receives the last one (if any) on subscription.
   /// Consumed by [BlocBuilder].
   Stream<S> get state => _stateSubject;
 
   /// Returns the state before any events have been `dispatched`.
-  S get initialState => null;
+  @protected S get initialState => null;
 
-  Bloc() {
-    _bindStateSubject();
+  @protected void setState(S state) => stateSubject.add(state);
+
+  void disposeState() {
+    _stateSubject.close();
   }
+
+  @override
+  void dispose() {
+    disposeState();
+  }
+}
+
+class HasEvent<E> extends Object implements IBloc
+{
+  final PublishSubject<E> _eventSubject = PublishSubject<E>();
 
   /// Takes an event and triggers `mapEventToState`.
   /// `Dispatch` may be called from the presentation layer or from within the Bloc.
@@ -27,53 +55,23 @@ abstract class Bloc<E, S> {
     _eventSubject.sink.add(event);
   }
 
-  /// Closes the event [Stream].
-  /// This is automatically handled by [BlocBuilder].
-  void dispose() {
-    _eventSubject.close();
-    _stateSubject.close();
-  }
-
   /// Transform the `Stream<Event>` before `mapEventToState` is called.
   /// This allows for operations like `distinct()`, `debounce()`, etc... to be applied.
-  Stream<E> transform(Stream<E> events) => events;
+  @protected Stream<E> transform(Stream<E> events) => events;
 
-  /// Must be implemented when a class extends Bloc.
-  /// Takes the current `state` and incoming `event` as arguments.
-  /// `mapEventToState` is called whenever an event is dispatched by the presentation layer.
-  /// `mapEventToState` must convert that event, along with the current state, into a new state
-  /// and return the new state in the form of a [Stream] which is consumed by the presentation layer.
-  Stream<S> mapEventToState(S state, E event);
+  void disposeEvent() {
+    _eventSubject.close();
+  }
 
-  void setState(S state) => _stateSubject.add(state);
-
-  void _bindStateSubject() {
-    (transform(_eventSubject) as Observable<E>)
-    .concatMap(
-      (E event) => mapEventToState(_stateSubject.value ?? initialState, event),
-    )
-    .forEach(
-      (S state) {
-        setState(state);
-      },
-    );
+  @override
+  void dispose() {
+    disposeEvent();
   }
 }
 
-abstract class RxBloc<E, S> extends Bloc<E, S> {
-  Stream<OnAction<T,S>> onAction<T extends E>()
-    => _eventSubject
-      .where((evt) => evt is T) //TODO: isn't this just a transform ?
-      .withLatestFrom(
-        _stateSubject.startWith(initialState), //TODO: what if null ?
-        (E e, S s) => OnAction(e as T,s))
-      ;
-
+abstract class SinkBloc extends BaseBloc {
   // waiting for CompositeSubscription https://github.com/ReactiveX/rxdart/pull/191/files/ae26e7b9ed63ed0832eac6362adb611f59588b8e
-  List<StreamSubscription> disposables = List<StreamSubscription>();
-
-  @override
-  Stream<S> mapEventToState(S state, E event) async* {}
+  @protected List<StreamSubscription> disposables = List<StreamSubscription>();
 
   @override
   void dispose() {
@@ -83,8 +81,65 @@ abstract class RxBloc<E, S> extends Bloc<E, S> {
   }
 }
 
-class OnAction<E, S> {
+abstract class SinkStateBloc<S> extends SinkBloc with HasState<S> {
+  @override
+  void dispose() {
+    (this as HasState).dispose();
+    //disposeState();
+    super.dispose();
+  }
+}
+
+abstract class EventStateBloc<E, S> extends SinkBloc with HasState<S>, HasEvent<E> {
+  Stream<OnEvent<T,S>> onEvent<T extends E>()
+  => _eventSubject
+      .where((evt) => evt is T) //TODO: isn't this just a transform ?
+      .withLatestFrom(
+        stateSubject.startWith(initialState), //TODO: what if null ?
+        (E e, S s) => OnEvent(e as T,s)
+      );
+
+  @override
+  void dispose() {
+    (this as HasState).dispose();
+    (this as HasEvent).dispose();
+    //disposeEvent();
+    //disposeState();
+    super.dispose();
+  }
+}
+
+
+/// Takes a [Stream] of events as input
+/// and transforms them into a [Stream] of states as output.
+abstract class Bloc<E, S> extends EventStateBloc<E, S> {
+
+  Bloc() {
+    _bindStateSubject();
+  }
+
+  /// Must be implemented when a class extends Bloc.
+  /// Takes the current `state` and incoming `event` as arguments.
+  /// `mapEventToState` is called whenever an event is dispatched by the presentation layer.
+  /// `mapEventToState` must convert that event, along with the current state, into a new state
+  /// and return the new state in the form of a [Stream] which is consumed by the presentation layer.
+  Stream<S> mapEventToState(S state, E event);
+
+  void _bindStateSubject() {
+    (transform(_eventSubject) as Observable<E>)
+    .concatMap(
+      (E event) => mapEventToState(stateSubject.value ?? initialState, event),
+    )
+    .forEach(
+      (S state) {
+        setState(state);
+      },
+    );
+  }
+}
+
+class OnEvent<E, S> {
   E event;
   S lastState;
-  OnAction(E this.event, S this.lastState){}
+  OnEvent(E this.event, S this.lastState){}
 }
