@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:bloc/bloc.dart';
+import 'package:rxdart/rxdart.dart';
 import 'package:rxdart/transformers.dart';
 
 void main() => runApp(MyApp());
@@ -14,19 +15,17 @@ class MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder(
-      bloc: _counterBloc,
-      builder: ((
-        BuildContext context,
-        int count,
-      ) {
+    return StreamBuilder(
+      initialData: _counterBloc.initialState,
+      stream: _counterBloc.state,
+      builder: (context, snapshot) {
         return MaterialApp(
-          title: 'Flutter Demo',
+          title: 'Flutter Demo' + snapshot.data.toString(),
           home: Scaffold(
             appBar: AppBar(title: Text('Counter')),
             body: Center(
               child: Text(
-                '$count',
+                snapshot.data.toString(),
                 style: TextStyle(fontSize: 24.0),
               ),
             ),
@@ -52,7 +51,7 @@ class MyAppState extends State<MyApp> {
             ),
           ),
         );
-      }),
+      },
     );
   }
 }
@@ -64,19 +63,20 @@ class IncrementCounter extends CounterEvent {}
 class DecrementCounter extends CounterEvent {}
 
 class CounterBloc extends EventStateBloc<CounterEvent, int> {
-  int get initialState => 0;
+
+  int get initialState => 1;
 
   CounterBloc(){
-    disposables.add(
-      onEvent<IncrementCounter>()
-        .map((action) => action.lastState += 1)
-        .listen(setState)
-    );
+
+    var autoResetTimer = Stream.periodic(const Duration(seconds: 5), (v) => 0);
 
     disposables.add(
-      onEvent<DecrementCounter>()
-        .map((action) => action.lastState -= 1)
-        .listen(setState)
+      Observable.merge([
+        onEvent<IncrementCounter>().map((action) => action.lastState += 1),
+        onEvent<DecrementCounter>().map((action) => action.lastState -= 1),
+        autoResetTimer
+      ])
+      .listen(setState)
     );
   }
 
@@ -88,7 +88,7 @@ class CounterBloc extends EventStateBloc<CounterEvent, int> {
   @override
   Stream<CounterEvent> transform(Stream<CounterEvent> events) {
     return events
-      .transform(new DoStreamTransformer<CounterEvent>(
+      .transform(DoStreamTransformer<CounterEvent>(
           onData: print,
           //onError: (CounterEvent e, StackTrace s) => print("Oh no!"),
           //onDone: () => print("Done")

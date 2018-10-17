@@ -82,9 +82,12 @@ abstract class SinkStateBloc<S> extends SinkBloc with HasState<S> {
 }
 
 abstract class EventStateBloc<E, S> extends SinkBloc with HasState<S>, HasEvent<E> {
+
+  Observable<E> get _transformedEvents => (transform(_eventSubject) as Observable<E>);
+
   @protected
-  Stream<OnEvent<T,S>> onEvent<T extends E>()
-  => _eventSubject
+  Stream<OnEvent<T,S>> onEvent<T extends E>() =>
+    _transformedEvents
       .where((evt) => evt is T) //TODO: isn't this just a transform ?
       .withLatestFrom(
         stateSubject.startWith(initialState), //TODO: what if null ?
@@ -116,15 +119,11 @@ abstract class Bloc<E, S> extends EventStateBloc<E, S> {
   @protected Stream<S> mapEventToState(S state, E event);
 
   void _bindStateSubject() {
-    (transform(_eventSubject) as Observable<E>)
-    .concatMap(
-      (E event) => mapEventToState(stateSubject.value ?? initialState, event),
-    )
-    .forEach(
-      (S state) {
-        setState(state);
-      },
-    );
+    _transformedEvents
+      .concatMap(
+        (E ev) => mapEventToState(stateSubject.value ?? initialState, ev),
+      )
+      .forEach(setState);
   }
 }
 
