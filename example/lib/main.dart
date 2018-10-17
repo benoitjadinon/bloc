@@ -20,7 +20,7 @@ class MyAppState extends State<MyApp> {
       stream: _counterBloc.state,
       builder: (context, snapshot) {
         return MaterialApp(
-          title: 'Flutter Demo' + snapshot.data.toString(),
+          title: 'Flutter Demo',
           home: Scaffold(
             appBar: AppBar(title: Text('Counter')),
             body: Center(
