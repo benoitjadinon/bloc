@@ -22,6 +22,9 @@ abstract class BaseBloc implements IBloc
 
 abstract class HasState<S> implements IBloc
 {
+  // class is a mixin
+  factory HasState._() => null;
+
   final BehaviorSubject<S> _stateSubject = BehaviorSubject<S>();
   @protected BehaviorSubject<S> get stateSubject => _stateSubject;
 
@@ -42,6 +45,9 @@ abstract class HasState<S> implements IBloc
 
 abstract class HasEvent<E> implements IBloc
 {
+  // class is a mixin
+  factory HasEvent._() => null;
+
   final PublishSubject<E> _eventSubject = PublishSubject<E>();
 
   /// Takes an event and triggers `mapEventToState`.
