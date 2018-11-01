@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:rxdart/rxdart.dart';
 import 'package:meta/meta.dart';
-
+import 'package:rx_command/rx_command.dart';
 
 abstract class IBloc
 {
@@ -69,14 +69,17 @@ abstract class HasEvent<E> implements IBloc
 
 abstract class SinkBloc extends BaseBloc {
   // waiting for CompositeSubscription https://github.com/ReactiveX/rxdart/pull/191/files/ae26e7b9ed63ed0832eac6362adb611f59588b8e
-  @protected List<StreamSubscription> disposables = List<StreamSubscription>();
+  @protected List<StreamSubscription> _disposables = List<StreamSubscription>();
 
   @override
   void dispose() {
-    disposables.forEach((d) => d.cancel());
-    disposables.clear();
+    _disposables.forEach((d) => d.cancel());
+    _disposables.clear();
     super.dispose();
   }
+
+  void disposeWhenDone(StreamSubscription listen)
+    => _disposables.add(listen);
 }
 
 abstract class SinkStateBloc<S> extends SinkBloc with HasState<S> {
@@ -132,6 +135,28 @@ abstract class Bloc<E, S> extends EventStateBloc<E, S> {
       .forEach(setState);
   }
 }
+
+/*
+abstract class RxBloc<E,S> extends SinkStateBloc<S>
+{
+  RxCommand<E,S> _command;
+  @protected Stream<S> get result => _command;
+
+  @protected S mapEventToState(S state, E event);
+
+  RxBloc(RxCommand<E,S> _command) : super()
+  {
+    //_command = RxCommand.createSync((e) => mapEventToState(stateSubject.value, e));
+    disposables.add(_command.listen(setState));
+  }
+
+  Stream<S> get state => _command;
+
+  Stream<bool> get isExecuting => _command.isExecuting;
+
+  void execute(E evt) => _command.execute(evt);
+}
+*/
 
 class OnEvent<E, S> {
   E event;

@@ -70,7 +70,7 @@ class CounterBloc extends EventStateBloc<CounterEvent, int> {
 
     var autoResetTimer = Stream.periodic(const Duration(seconds: 5), (v) => 0);
 
-    disposables.add(
+    disposeWhenDone(
       Observable.merge([
         onEvent<IncrementCounter>().map((action) => action.lastState += 1),
         onEvent<DecrementCounter>().map((action) => action.lastState -= 1),
